@@ -172,6 +172,41 @@ jobs:
           echo "PROJECT_NAME: ${{ env.PROJECT_NAME }}"
           echo "GITHUB_SHA: ${{ github.sha }}"
       
+      - name: Get Container Instance ID for ${{ matrix.service }} by name
+        uses: oracle-actions/run-oci-cli-command@v1.3.2
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        with:
+          command: |
+            echo "=== Getting Container Instance ID for ${{ matrix.service }} ==="
+            
+            # コンテナインスタンス名でOCIDを検索
+            INSTANCE_NAME="${{ env.PROJECT_NAME }}-${{ matrix.service }}"
+            echo "Searching for instance: ${INSTANCE_NAME}"
+            
+            CONTAINER_INSTANCE_ID=$(oci container-instances container-instance list \
+              --compartment-id ${{ secrets.OCI_COMPARTMENT_ID }} \
+              --display-name "${INSTANCE_NAME}" \
+              --query 'data[0].id' \
+              --raw-output 2>/dev/null || echo "")
+            
+            if [ -z "${CONTAINER_INSTANCE_ID}" ] || [ "${CONTAINER_INSTANCE_ID}" = "null" ]; then
+              echo "❌ Failed to find container instance: ${INSTANCE_NAME}"
+              echo "Available instances:"
+              oci container-instances container-instance list \
+                --compartment-id ${{ secrets.OCI_COMPARTMENT_ID }} \
+                --query 'data[].{"Name":"display-name","ID":"id","State":"lifecycle-state"}' \
+                --output table
+              exit 1
+            fi
+            
+            echo "✅ Found Container Instance ID: ${CONTAINER_INSTANCE_ID}"
+            echo "CONTAINER_INSTANCE_ID=${CONTAINER_INSTANCE_ID}" >> $GITHUB_ENV
+      
       - name: Validate JSON syntax for ${{ matrix.service }}
         run: |
           echo "=== JSON Syntax Validation ==="
@@ -199,11 +234,11 @@ jobs:
           echo "Complete command that will be executed:"
           echo ""
           echo "oci container-instances container-instance update \\"
-          echo "  --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} \\"
+          echo "  --container-instance-id ${CONTAINER_INSTANCE_ID} \\"
           echo "  --containers '${CONTAINER_JSON}' \\"
           echo "  --force"
           echo ""
-          echo "Command length: $(echo "oci container-instances container-instance update --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} --containers '${CONTAINER_JSON}' --force" | wc -c) characters"
+          echo "Command length: $(echo "oci container-instances container-instance update --container-instance-id ${CONTAINER_INSTANCE_ID} --containers '${CONTAINER_JSON}' --force" | wc -c) characters"
       
       - name: Test OCI CLI basic functionality for ${{ matrix.service }}
         uses: oracle-actions/run-oci-cli-command@v1.3.2
@@ -217,7 +252,7 @@ jobs:
           command: |
             echo "Testing basic OCI CLI functionality..."
             oci container-instances container-instance get \
-              --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} \
+              --container-instance-id ${CONTAINER_INSTANCE_ID} \
               --query 'data."lifecycle-state"' \
               --raw-output
       
@@ -237,14 +272,14 @@ jobs:
           
           echo "Executing OCI CLI command..."
           oci container-instances container-instance update \
-            --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} \
+            --container-instance-id ${CONTAINER_INSTANCE_ID} \
             --containers "${CONTAINER_JSON}" \
             --force \
             --debug 2>&1 || {
               EXIT_CODE=$?
               echo "❌ OCI CLI failed with exit code: ${EXIT_CODE}"
               echo "=== Command that failed ==="
-              echo "oci container-instances container-instance update --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} --containers '${CONTAINER_JSON}' --force --debug"
+              echo "oci container-instances container-instance update --container-instance-id ${CONTAINER_INSTANCE_ID} --containers '${CONTAINER_JSON}' --force --debug"
               exit ${EXIT_CODE}
             }
           
@@ -257,7 +292,7 @@ jobs:
           
           # Check container instance status
           oci container-instances container-instance get \
-            --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} \
+            --container-instance-id ${CONTAINER_INSTANCE_ID} \
             --query 'data."lifecycle-state"' \
             --raw-output
 
