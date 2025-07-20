@@ -3,7 +3,7 @@ terraform {
   required_providers {
     oci = {
       source  = "oracle/oci"
-      version = "~> 5.0"
+      version = "~> 7.8"
     }
   }
 }
@@ -131,7 +131,7 @@ resource "oci_container_instances_container_instance" "frontend" {
 
   vnics {
     subnet_id              = oci_core_subnet.public_subnet.id
-    is_public_ip_assigned  = false
+    is_public_ip_assigned  = true
     display_name           = "frontend-vnic"
     skip_source_dest_check = false
   }
@@ -173,7 +173,7 @@ resource "oci_container_instances_container_instance" "postgresql" {
 
   vnics {
     subnet_id              = oci_core_subnet.public_subnet.id
-    is_public_ip_assigned  = false
+    is_public_ip_assigned  = true
     display_name           = "postgresql-vnic"
     skip_source_dest_check = false
   }
@@ -205,7 +205,7 @@ resource "oci_container_instances_container_instance" "backend" {
 
   vnics {
     subnet_id              = oci_core_subnet.public_subnet.id
-    is_public_ip_assigned  = false
+    is_public_ip_assigned  = true
     display_name           = "backend-vnic"
     skip_source_dest_check = false
   }
@@ -288,16 +288,6 @@ resource "oci_load_balancer_backend" "backend_backend" {
   weight           = 1
 }
 
-# Listener for HTTPS
-resource "oci_load_balancer_listener" "https_listener" {
-  load_balancer_id         = oci_load_balancer_load_balancer.load_balancer.id
-  name                     = "https-listener"
-  default_backend_set_name = oci_load_balancer_backend_set.frontend_backend_set.name
-  port                     = 443
-  protocol                 = "HTTP"
-
-  # Note: In production, you would want to configure SSL certificates
-}
 
 # Listener for HTTP (redirect to HTTPS in production)
 resource "oci_load_balancer_listener" "http_listener" {
@@ -322,16 +312,14 @@ resource "oci_load_balancer_path_route_set" "path_route_set" {
   }
 }
 
-# Update listeners to use path routing
-resource "oci_load_balancer_listener" "https_listener_with_routing" {
+# HTTPS Listener with path routing
+resource "oci_load_balancer_listener" "https_listener" {
   load_balancer_id         = oci_load_balancer_load_balancer.load_balancer.id
-  name                     = "https-listener-routing"
+  name                     = "https-listener"
   default_backend_set_name = oci_load_balancer_backend_set.frontend_backend_set.name
   port                     = 443
   protocol                 = "HTTP"
   path_route_set_name      = oci_load_balancer_path_route_set.path_route_set.name
-
-  depends_on = [oci_load_balancer_listener.https_listener]
 }
 
 # Outputs
