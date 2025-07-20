@@ -126,9 +126,9 @@ resource "oci_container_instances_container_instance" "frontend" {
   }
 
   vnics {
-    subnet_id           = oci_core_subnet.public_subnet.id
-    assign_public_ip    = false
-    display_name        = "frontend-vnic"
+    subnet_id              = oci_core_subnet.public_subnet.id
+    assign_public_ip       = false
+    display_name           = "frontend-vnic"
     skip_source_dest_check = false
   }
 
@@ -207,7 +207,7 @@ resource "oci_container_instances_container_instance" "backend" {
   }
 
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
-  
+
   depends_on = [oci_container_instances_container_instance.postgresql]
 }
 
@@ -216,7 +216,7 @@ resource "oci_load_balancer_load_balancer" "load_balancer" {
   compartment_id = var.compartment_id
   display_name   = "${var.project_name}-lb"
   shape          = "flexible"
-  
+
   shape_details {
     minimum_bandwidth_in_mbps = 10
     maximum_bandwidth_in_mbps = 100
@@ -327,7 +327,7 @@ resource "oci_load_balancer_listener" "https_listener_with_routing" {
   protocol                 = "HTTP"
   path_route_set_name      = oci_load_balancer_path_route_set.path_route_set.name
 
-  depends_on               = [oci_load_balancer_listener.https_listener]
+  depends_on = [oci_load_balancer_listener.https_listener]
 }
 
 # Outputs
