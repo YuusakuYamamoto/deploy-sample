@@ -20,6 +20,9 @@ async function bootstrap() {
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe());
 
+  // Set global prefix for API routes
+  app.setGlobalPrefix('api');
+
   // Swagger設定
   const config = new DocumentBuilder()
     .setTitle("SDB Sample API")
