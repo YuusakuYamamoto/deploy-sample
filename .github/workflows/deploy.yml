@@ -35,7 +35,7 @@ jobs:
           terraform_wrapper: false
       
       - name: Configure OCI CLI
-        uses: oracle-actions/configure-oci-cli@v1.3.0
+        uses: oracle-actions/configure-oci-cli@v1.2.1
         with:
           user: ${{ secrets.OCI_CLI_USER }}
           fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
@@ -121,7 +121,7 @@ jobs:
     
     steps:
       - name: Configure OCI CLI
-        uses: oracle-actions/configure-oci-cli@v1.3.0
+        uses: oracle-actions/configure-oci-cli@v1.2.1
         with:
           user: ${{ secrets.OCI_CLI_USER }}
           fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
@@ -161,7 +161,7 @@ jobs:
     
     steps:
       - name: Configure OCI CLI
-        uses: oracle-actions/configure-oci-cli@v1.3.0
+        uses: oracle-actions/configure-oci-cli@v1.2.1
         with:
           user: ${{ secrets.OCI_CLI_USER }}
           fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
