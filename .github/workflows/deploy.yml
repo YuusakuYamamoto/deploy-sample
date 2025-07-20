@@ -49,7 +49,7 @@ jobs:
         run: terraform init
       
       - name: Terraform Format Check
-        run: terraform fmt -check
+        run: terraform fmt -check -diff -recursive
       
       - name: Terraform Plan
         run: terraform plan -out=tfplan
