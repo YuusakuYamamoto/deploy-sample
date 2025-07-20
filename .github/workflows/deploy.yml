@@ -224,8 +224,8 @@ jobs:
             
             echo "Search result JSON: ${SEARCH_RESULT}"
             
-            # Extract ID if found
-            CONTAINER_INSTANCE_ID=$(echo "${SEARCH_RESULT}" | jq -r '.[0].id // empty' 2>/dev/null || echo "")
+            # Extract ID if found (only ACTIVE instances)
+            CONTAINER_INSTANCE_ID=$(echo "${SEARCH_RESULT}" | jq -r '.[] | select(."lifecycle-state" == "ACTIVE") | .id' 2>/dev/null || echo "")
             
             echo "Extracted Container Instance ID: '${CONTAINER_INSTANCE_ID}'"
             
