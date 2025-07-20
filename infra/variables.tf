@@ -42,7 +42,7 @@ variable "project_name" {
 }
 
 variable "ocir_repository" {
-  description = "OCIR repository URL (e.g., nrt.ocir.io/namespace/repository)"
+  description = "OCIR repository URL for single repository (e.g., nrt.ocir.io/namespace/sdb-sample)"
   type        = string
 }
 

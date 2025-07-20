@@ -121,7 +121,7 @@ resource "oci_container_instances_container_instance" "frontend" {
 
   containers {
     display_name = "nextjs"
-    image_url    = "${var.ocir_repository}/frontend:${var.image_tag}"
+    image_url    = "${var.ocir_repository}:frontend-${var.image_tag}"
 
     environment_variables = {
       NODE_ENV = "production"
@@ -194,7 +194,7 @@ resource "oci_container_instances_container_instance" "backend" {
 
   containers {
     display_name = "nestjs"
-    image_url    = "${var.ocir_repository}/backend:${var.image_tag}"
+    image_url    = "${var.ocir_repository}:backend-${var.image_tag}"
 
     environment_variables = {
       NODE_ENV     = "production"
