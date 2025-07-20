@@ -205,20 +205,42 @@ jobs:
                 exit 1
               }
             
-            # Step 4: Search for specific instance
+            # Step 4: Search for specific instance with detailed debugging
             INSTANCE_NAME="${{ env.PROJECT_NAME }}-${{ matrix.service }}"
             echo "Searching for instance: ${INSTANCE_NAME}"
             
-            CONTAINER_INSTANCE_ID=$(oci container-instances container-instance list \
+            # First, show all instances with their exact names for comparison
+            echo "All container instances with names:"
+            oci container-instances container-instance list \
+              --compartment-id ${{ secrets.OCI_COMPARTMENT_ID }} \
+              --query 'data[].{"Name":"display-name","ID":"id"}' \
+              --output table
+            
+            # Try exact match search
+            echo "Trying exact match search for: '${INSTANCE_NAME}'"
+            SEARCH_RESULT=$(oci container-instances container-instance list \
               --compartment-id ${{ secrets.OCI_COMPARTMENT_ID }} \
               --display-name "${INSTANCE_NAME}" \
-              --query 'data[0].id' \
-              --raw-output 2>&1 || echo "SEARCH_FAILED")
+              --query 'data' \
+              --output json 2>&1 || echo "[]")
             
-            echo "Search result: ${CONTAINER_INSTANCE_ID}"
+            echo "Search result JSON: ${SEARCH_RESULT}"
             
-            if [ "${CONTAINER_INSTANCE_ID}" = "SEARCH_FAILED" ] || [ -z "${CONTAINER_INSTANCE_ID}" ] || [ "${CONTAINER_INSTANCE_ID}" = "null" ]; then
-              echo "❌ Failed to find container instance: ${INSTANCE_NAME}"
+            # Extract ID if found
+            CONTAINER_INSTANCE_ID=$(echo "${SEARCH_RESULT}" | jq -r '.[0].id // empty' 2>/dev/null || echo "")
+            
+            echo "Extracted Container Instance ID: '${CONTAINER_INSTANCE_ID}'"
+            
+            if [ -z "${CONTAINER_INSTANCE_ID}" ] || [ "${CONTAINER_INSTANCE_ID}" = "null" ]; then
+              echo "❌ Failed to find container instance with exact name: ${INSTANCE_NAME}"
+              
+              # Try partial match as fallback
+              echo "Trying partial match search..."
+              oci container-instances container-instance list \
+                --compartment-id ${{ secrets.OCI_COMPARTMENT_ID }} \
+                --query "data[?contains(\"display-name\", '${{ matrix.service }}')].{\"Name\":\"display-name\",\"ID\":\"id\"}" \
+                --output table
+              
               exit 1
             fi
             
