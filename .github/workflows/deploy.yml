@@ -349,7 +349,7 @@ jobs:
           
           echo "✅ Container instance access successful"
       
-      - name: Update ${{ matrix.service }} Container Instance (with detailed debug)
+      - name: Restart ${{ matrix.service }} Container Instance (to deploy new image)
         env:
           OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
           OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
@@ -357,37 +357,48 @@ jobs:
           OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
           OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
         run: |
-          echo "=== Starting OCI CLI Update Command ==="
-          set -x  # Enable command tracing
+          echo "=== Restarting Container Instance to Deploy New Image ==="
+          echo "Container Instance ID: ${CONTAINER_INSTANCE_ID}"
+          echo "New Image URL: ${IMAGE_URL}"
           
-          # Prepare container JSON
-          CONTAINER_JSON="[{\"displayName\": \"${DISPLAY_NAME}\", \"imageUrl\": \"${IMAGE_URL}\", \"environmentVariables\": ${ENV_VARS}}]"
-          
-          echo "Executing OCI CLI command..."
-          oci container-instances container-instance update \
+          echo "Executing OCI CLI restart command..."
+          oci container-instances container-instance restart \
             --container-instance-id ${CONTAINER_INSTANCE_ID} \
-            --containers "${CONTAINER_JSON}" \
-            --force \
-            --debug 2>&1 || {
+            --wait-for-state SUCCEEDED \
+            --max-wait-seconds 600 || {
               EXIT_CODE=$?
-              echo "❌ OCI CLI failed with exit code: ${EXIT_CODE}"
+              echo "❌ OCI CLI restart failed with exit code: ${EXIT_CODE}"
               echo "=== Command that failed ==="
-              echo "oci container-instances container-instance update --container-instance-id ${CONTAINER_INSTANCE_ID} --containers '${CONTAINER_JSON}' --force --debug"
+              echo "oci container-instances container-instance restart --container-instance-id ${CONTAINER_INSTANCE_ID} --wait-for-state SUCCEEDED --max-wait-seconds 600"
               exit ${EXIT_CODE}
             }
           
-          echo "✅ OCI CLI command completed successfully"
+          echo "✅ Container Instance restart completed successfully"
       
-      - name: Wait for ${{ matrix.service }} Container Instance to be updated
+      - name: Verify ${{ matrix.service }} Container Instance status
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
         run: |
-          echo "Waiting for container instance update to complete..."
-          sleep 30
+          echo "Verifying container instance status after restart..."
           
           # Check container instance status
-          oci container-instances container-instance get \
+          INSTANCE_STATE=$(oci container-instances container-instance get \
             --container-instance-id ${CONTAINER_INSTANCE_ID} \
             --query 'data."lifecycle-state"' \
-            --raw-output
+            --raw-output)
+          
+          echo "Container Instance State: ${INSTANCE_STATE}"
+          
+          if [ "${INSTANCE_STATE}" = "ACTIVE" ]; then
+            echo "✅ Container Instance is ACTIVE and ready"
+          else
+            echo "❌ Container Instance state is not ACTIVE: ${INSTANCE_STATE}"
+            exit 1
+          fi
 
   health-check:
     name: Health Check
