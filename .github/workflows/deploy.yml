@@ -159,7 +159,53 @@ jobs:
             echo "DISPLAY_NAME=nestjs" >> $GITHUB_ENV
           fi
       
-      - name: Update ${{ matrix.service }} Container Instance
+      - name: Debug environment variables for ${{ matrix.service }}
+        run: |
+          echo "=== Environment Variables Debug ==="
+          echo "SERVICE: ${{ matrix.service }}"
+          echo "IMAGE_URL: ${IMAGE_URL}"
+          echo "ENV_VARS: ${ENV_VARS}"
+          echo "DISPLAY_NAME: ${DISPLAY_NAME}"
+          echo "CI_ID: ${{ needs.iac.outputs[matrix.ci_id_var] }}"
+          echo "OCIR_REGION: ${{ env.OCIR_REGION }}"
+          echo "OCIR_NAMESPACE: ${{ env.OCIR_NAMESPACE }}"
+          echo "PROJECT_NAME: ${{ env.PROJECT_NAME }}"
+          echo "GITHUB_SHA: ${{ github.sha }}"
+      
+      - name: Validate JSON syntax for ${{ matrix.service }}
+        run: |
+          echo "=== JSON Syntax Validation ==="
+          echo "ENV_VARS JSON validation:"
+          echo "${ENV_VARS}" | jq '.' || echo "❌ Invalid JSON in ENV_VARS"
+          
+          echo "Building complete container JSON:"
+          CONTAINER_JSON="[{\"displayName\": \"${DISPLAY_NAME}\", \"imageUrl\": \"${IMAGE_URL}\", \"environmentVariables\": ${ENV_VARS}}]"
+          echo "Container JSON: ${CONTAINER_JSON}"
+          
+          echo "Container JSON validation:"
+          echo "${CONTAINER_JSON}" | jq '.' || echo "❌ Invalid container JSON syntax"
+          
+          if echo "${CONTAINER_JSON}" | jq '.' > /dev/null 2>&1; then
+            echo "✅ JSON syntax is valid"
+          else
+            echo "❌ JSON syntax is invalid - this will cause OCI CLI to fail"
+            exit 1
+          fi
+      
+      - name: Show OCI CLI command for ${{ matrix.service }} (dry run)
+        run: |
+          echo "=== OCI CLI Command Preview ==="
+          CONTAINER_JSON="[{\"displayName\": \"${DISPLAY_NAME}\", \"imageUrl\": \"${IMAGE_URL}\", \"environmentVariables\": ${ENV_VARS}}]"
+          echo "Complete command that will be executed:"
+          echo ""
+          echo "oci container-instances container-instance update \\"
+          echo "  --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} \\"
+          echo "  --containers '${CONTAINER_JSON}' \\"
+          echo "  --force"
+          echo ""
+          echo "Command length: $(echo "oci container-instances container-instance update --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} --containers '${CONTAINER_JSON}' --force" | wc -c) characters"
+      
+      - name: Test OCI CLI basic functionality for ${{ matrix.service }}
         uses: oracle-actions/run-oci-cli-command@v1.3.2
         env:
           OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
@@ -169,10 +215,40 @@ jobs:
           OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
         with:
           command: |
-            oci container-instances container-instance update \
+            echo "Testing basic OCI CLI functionality..."
+            oci container-instances container-instance get \
               --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} \
-              --containers "[{\"displayName\": \"${DISPLAY_NAME}\", \"imageUrl\": \"${IMAGE_URL}\", \"environmentVariables\": ${ENV_VARS}}]" \
-              --force
+              --query 'data."lifecycle-state"' \
+              --raw-output
+      
+      - name: Update ${{ matrix.service }} Container Instance (with detailed debug)
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          echo "=== Starting OCI CLI Update Command ==="
+          set -x  # Enable command tracing
+          
+          # Prepare container JSON
+          CONTAINER_JSON="[{\"displayName\": \"${DISPLAY_NAME}\", \"imageUrl\": \"${IMAGE_URL}\", \"environmentVariables\": ${ENV_VARS}}]"
+          
+          echo "Executing OCI CLI command..."
+          oci container-instances container-instance update \
+            --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} \
+            --containers "${CONTAINER_JSON}" \
+            --force \
+            --debug 2>&1 || {
+              EXIT_CODE=$?
+              echo "❌ OCI CLI failed with exit code: ${EXIT_CODE}"
+              echo "=== Command that failed ==="
+              echo "oci container-instances container-instance update --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} --containers '${CONTAINER_JSON}' --force --debug"
+              exit ${EXIT_CODE}
+            }
+          
+          echo "✅ OCI CLI command completed successfully"
       
       - name: Wait for ${{ matrix.service }} Container Instance to be updated
         run: |
