@@ -127,7 +127,7 @@ resource "oci_container_instances_container_instance" "frontend" {
 
   vnics {
     subnet_id              = oci_core_subnet.public_subnet.id
-    assign_public_ip       = false
+    is_public_ip_assigned  = false
     display_name           = "frontend-vnic"
     skip_source_dest_check = false
   }
@@ -169,7 +169,7 @@ resource "oci_container_instances_container_instance" "postgresql" {
 
   vnics {
     subnet_id              = oci_core_subnet.public_subnet.id
-    assign_public_ip       = false
+    is_public_ip_assigned  = false
     display_name           = "postgresql-vnic"
     skip_source_dest_check = false
   }
@@ -201,7 +201,7 @@ resource "oci_container_instances_container_instance" "backend" {
 
   vnics {
     subnet_id              = oci_core_subnet.public_subnet.id
-    assign_public_ip       = false
+    is_public_ip_assigned  = false
     display_name           = "backend-vnic"
     skip_source_dest_check = false
   }
