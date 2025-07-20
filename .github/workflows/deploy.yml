@@ -147,6 +147,18 @@ jobs:
         with:
           command: 'oci --version'
       
+      - name: Set container configuration for ${{ matrix.service }}
+        run: |
+          if [ "${{ matrix.service }}" = "frontend" ]; then
+            echo "IMAGE_URL=${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}:frontend-${{ github.sha }}" >> $GITHUB_ENV
+            echo 'ENV_VARS={"NODE_ENV": "production", "PORT": "3000"}' >> $GITHUB_ENV
+            echo "DISPLAY_NAME=nextjs" >> $GITHUB_ENV
+          else
+            echo "IMAGE_URL=${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}:backend-${{ github.sha }}" >> $GITHUB_ENV
+            echo 'ENV_VARS={"NODE_ENV": "production", "PORT": "3001"}' >> $GITHUB_ENV
+            echo "DISPLAY_NAME=nestjs" >> $GITHUB_ENV
+          fi
+      
       - name: Update ${{ matrix.service }} Container Instance
         uses: oracle-actions/run-oci-cli-command@v1.3.2
         env:
@@ -159,11 +171,7 @@ jobs:
           command: |
             oci container-instances container-instance update \
               --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} \
-              --containers '[{
-                "displayName": "${{ matrix.service == 'frontend' && 'nextjs' || 'nestjs' }}",
-                "imageUrl": "${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}:${{ matrix.service }}-${{ github.sha }}",
-                "environmentVariables": ${{ matrix.service == 'frontend' && '{"NODE_ENV": "production", "PORT": "3000"}' || '{"NODE_ENV": "production", "PORT": "3001"}' }}
-              }]' \
+              --containers "[{\"displayName\": \"${DISPLAY_NAME}\", \"imageUrl\": \"${IMAGE_URL}\", \"environmentVariables\": ${ENV_VARS}}]" \
               --force
       
       - name: Wait for ${{ matrix.service }} Container Instance to be updated
