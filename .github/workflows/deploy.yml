@@ -225,6 +225,21 @@ jobs:
             echo "✅ Found Container Instance ID: ${CONTAINER_INSTANCE_ID}"
             echo "CONTAINER_INSTANCE_ID=${CONTAINER_INSTANCE_ID}" >> $GITHUB_ENV
       
+      - name: Debug Container Instance ID for ${{ matrix.service }}
+        run: |
+          echo "=== Container Instance ID Debug ==="
+          echo "CONTAINER_INSTANCE_ID value: '${CONTAINER_INSTANCE_ID}'"
+          echo "CONTAINER_INSTANCE_ID length: ${#CONTAINER_INSTANCE_ID}"
+          echo "CONTAINER_INSTANCE_ID first 20 chars: ${CONTAINER_INSTANCE_ID:0:20}"
+          echo "CONTAINER_INSTANCE_ID last 20 chars: ${CONTAINER_INSTANCE_ID: -20}"
+          
+          # Check if ID looks like a valid OCID
+          if [[ "${CONTAINER_INSTANCE_ID}" =~ ^ocid1\. ]]; then
+            echo "✅ ID starts with ocid1. (looks valid)"
+          else
+            echo "❌ ID does not start with ocid1. (invalid format)"
+          fi
+      
       - name: Validate JSON syntax for ${{ matrix.service }}
         run: |
           echo "=== JSON Syntax Validation ==="
@@ -258,7 +273,7 @@ jobs:
           echo ""
           echo "Command length: $(echo "oci container-instances container-instance update --container-instance-id ${CONTAINER_INSTANCE_ID} --containers '${CONTAINER_JSON}' --force" | wc -c) characters"
       
-      - name: Test OCI CLI basic functionality for ${{ matrix.service }}
+      - name: Test Container Instance Access for ${{ matrix.service }} (detailed)
         uses: oracle-actions/run-oci-cli-command@v1.3.2
         env:
           OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
@@ -268,11 +283,32 @@ jobs:
           OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
         with:
           command: |
-            echo "Testing basic OCI CLI functionality..."
+            echo "=== Testing Container Instance Access ==="
+            echo "Using Container Instance ID: ${CONTAINER_INSTANCE_ID}"
+            
+            echo "Attempting container-instance get with debug output..."
             oci container-instances container-instance get \
-              --container-instance-id ${CONTAINER_INSTANCE_ID} \
-              --query 'data."lifecycle-state"' \
-              --raw-output
+              --container-instance-id "${CONTAINER_INSTANCE_ID}" \
+              --debug 2>&1 || {
+                EXIT_CODE=$?
+                echo "❌ Get command failed with exit code: ${EXIT_CODE}"
+                
+                echo "Trying alternative: search in list by ID..."
+                oci container-instances container-instance list \
+                  --compartment-id ${{ secrets.OCI_COMPARTMENT_ID }} \
+                  --query "data[?id=='${CONTAINER_INSTANCE_ID}'].{\"ID\":\"id\",\"Name\":\"display-name\",\"State\":\"lifecycle-state\"}" \
+                  --output json || echo "List search also failed"
+                
+                echo "Trying basic list to verify permissions..."
+                oci container-instances container-instance list \
+                  --compartment-id ${{ secrets.OCI_COMPARTMENT_ID }} \
+                  --query 'data[0:2].{"ID":"id","Name":"display-name","State":"lifecycle-state"}' \
+                  --output json || echo "Basic list also failed"
+                
+                exit ${EXIT_CODE}
+              }
+            
+            echo "✅ Container instance access successful"
       
       - name: Update ${{ matrix.service }} Container Instance (with detailed debug)
         env:
