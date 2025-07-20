@@ -108,7 +108,7 @@ resource "oci_core_subnet" "public_subnet" {
 resource "oci_container_instances_container_instance" "frontend" {
   compartment_id = var.compartment_id
   display_name   = "${var.project_name}-frontend"
-  
+
   shape = "CI.Standard.E4.Flex"
   shape_config {
     ocpus         = 2
@@ -118,7 +118,7 @@ resource "oci_container_instances_container_instance" "frontend" {
   containers {
     display_name = "nextjs"
     image_url    = "${var.ocir_repository}/frontend:${var.image_tag}"
-    
+
     environment_variables = {
       NODE_ENV = "production"
       PORT     = "3000"
@@ -139,7 +139,7 @@ resource "oci_container_instances_container_instance" "frontend" {
 resource "oci_container_instances_container_instance" "postgresql" {
   compartment_id = var.compartment_id
   display_name   = "${var.project_name}-postgresql"
-  
+
   shape = "CI.Standard.E4.Flex"
   shape_config {
     ocpus         = 1
@@ -149,7 +149,7 @@ resource "oci_container_instances_container_instance" "postgresql" {
   containers {
     display_name = "postgresql"
     image_url    = "postgres:15"
-    
+
     environment_variables = {
       POSTGRES_DB       = var.database_name
       POSTGRES_USER     = var.database_user
@@ -181,7 +181,7 @@ resource "oci_container_instances_container_instance" "postgresql" {
 resource "oci_container_instances_container_instance" "backend" {
   compartment_id = var.compartment_id
   display_name   = "${var.project_name}-backend"
-  
+
   shape = "CI.Standard.E4.Flex"
   shape_config {
     ocpus         = 2
@@ -191,7 +191,7 @@ resource "oci_container_instances_container_instance" "backend" {
   containers {
     display_name = "nestjs"
     image_url    = "${var.ocir_repository}/backend:${var.image_tag}"
-    
+
     environment_variables = {
       NODE_ENV     = "production"
       PORT         = "3001"
