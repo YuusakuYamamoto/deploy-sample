@@ -161,7 +161,7 @@ jobs:
               --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} \
               --containers '[{
                 "displayName": "${{ matrix.service == 'frontend' && 'nextjs' || 'nestjs' }}",
-                "imageUrl": "${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:${{ github.sha }}",
+                "imageUrl": "${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}:${{ matrix.service }}-${{ github.sha }}",
                 "environmentVariables": ${{ matrix.service == 'frontend' && '{"NODE_ENV": "production", "PORT": "3000"}' || '{"NODE_ENV": "production", "PORT": "3001"}' }}
               }]' \
               --force
