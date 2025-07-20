@@ -29,9 +29,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Create public directory and copy if exists
+# Create public directory and copy content if exists
 RUN mkdir -p ./public
-COPY --from=builder /app/public ./public 2>/dev/null || echo "No public folder content to copy"
+COPY --from=builder /app/public/ ./public/
 
 # Set the correct permission for prerender cache
 RUN mkdir .next
