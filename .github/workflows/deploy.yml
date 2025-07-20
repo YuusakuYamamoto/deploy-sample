@@ -1,0 +1,210 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  OCIR_REGION: nrt
+  OCIR_NAMESPACE: ${{ secrets.OCIR_NAMESPACE }}
+  PROJECT_NAME: sdb-sample
+
+jobs:
+  iac:
+    name: Infrastructure as Code
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    defaults:
+      run:
+        working-directory: infra
+    
+    outputs:
+      frontend_ci_id: ${{ steps.terraform.outputs.frontend_ci_id }}
+      backend_ci_id: ${{ steps.terraform.outputs.backend_ci_id }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+          terraform_wrapper: false
+      
+      - name: Configure OCI CLI
+        uses: oracle-actions/configure-oci-cli@v1.3.0
+        with:
+          user: ${{ secrets.OCI_CLI_USER }}
+          fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          tenancy: ${{ secrets.OCI_CLI_TENANCY }}
+          region: ${{ secrets.OCI_CLI_REGION }}
+          private_key: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
+      
+      - name: Terraform Init
+        run: terraform init
+      
+      - name: Terraform Format Check
+        run: terraform fmt -check
+      
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        env:
+          TF_VAR_compartment_id: ${{ secrets.OCI_COMPARTMENT_ID }}
+          TF_VAR_ocir_repository: ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
+      
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        env:
+          TF_VAR_compartment_id: ${{ secrets.OCI_COMPARTMENT_ID }}
+          TF_VAR_ocir_repository: ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
+      
+      - name: Get Terraform Outputs
+        id: terraform
+        run: |
+          echo "frontend_ci_id=$(terraform output -raw frontend_container_instance_id)" >> $GITHUB_OUTPUT
+          echo "backend_ci_id=$(terraform output -raw backend_container_instance_id)" >> $GITHUB_OUTPUT
+
+  build-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: iac
+    if: github.ref == 'refs/heads/main'
+    
+    strategy:
+      matrix:
+        service: [frontend, backend]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to OCIR
+        uses: oracle-actions/login-ocir@v1.2.1
+        with:
+          auth_token: ${{ secrets.OCI_AUTH_TOKEN }}
+      
+      - name: Build and push ${{ matrix.service }} image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:${{ github.sha }}
+            ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to OCI Container Instances
+    runs-on: ubuntu-latest
+    needs: [iac, build-push]
+    if: github.ref == 'refs/heads/main'
+    
+    strategy:
+      matrix:
+        include:
+          - service: frontend
+            ci_id_var: frontend_ci_id
+          - service: backend
+            ci_id_var: backend_ci_id
+    
+    steps:
+      - name: Configure OCI CLI
+        uses: oracle-actions/configure-oci-cli@v1.3.0
+        with:
+          user: ${{ secrets.OCI_CLI_USER }}
+          fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          tenancy: ${{ secrets.OCI_CLI_TENANCY }}
+          region: ${{ secrets.OCI_CLI_REGION }}
+          private_key: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
+      
+      - name: Update ${{ matrix.service }} Container Instance
+        uses: oracle-actions/run-oci-cli-command@v1.1.1
+        with:
+          command: |
+            oci container-instances container-instance update \
+              --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} \
+              --containers '[{
+                "displayName": "${{ matrix.service == 'frontend' && 'nextjs' || 'nestjs' }}",
+                "imageUrl": "${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:${{ github.sha }}",
+                "environmentVariables": ${{ matrix.service == 'frontend' && '{"NODE_ENV": "production", "PORT": "3000"}' || '{"NODE_ENV": "production", "PORT": "3001", "DATABASE_URL": "${{ secrets.DATABASE_URL }}"}' }}
+              }]' \
+              --force
+      
+      - name: Wait for ${{ matrix.service }} Container Instance to be updated
+        run: |
+          echo "Waiting for container instance update to complete..."
+          sleep 30
+          
+          # Check container instance status
+          oci container-instances container-instance get \
+            --container-instance-id ${{ needs.iac.outputs[matrix.ci_id_var] }} \
+            --query 'data."lifecycle-state"' \
+            --raw-output
+
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    needs: [iac, deploy]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Configure OCI CLI
+        uses: oracle-actions/configure-oci-cli@v1.3.0
+        with:
+          user: ${{ secrets.OCI_CLI_USER }}
+          fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          tenancy: ${{ secrets.OCI_CLI_TENANCY }}
+          region: ${{ secrets.OCI_CLI_REGION }}
+          private_key: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
+      
+      - name: Get Load Balancer IP
+        id: lb_ip
+        working-directory: infra
+        run: |
+          terraform init
+          echo "lb_ip=$(terraform output -raw load_balancer_public_ip)" >> $GITHUB_OUTPUT
+        env:
+          TF_VAR_compartment_id: ${{ secrets.OCI_COMPARTMENT_ID }}
+          TF_VAR_ocir_repository: ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
+      
+      - name: Health Check - Frontend
+        run: |
+          echo "Checking frontend health at http://${{ steps.lb_ip.outputs.lb_ip }}"
+          for i in {1..10}; do
+            if curl -f -s http://${{ steps.lb_ip.outputs.lb_ip }}; then
+              echo "Frontend is healthy!"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 30 seconds..."
+            sleep 30
+          done
+          echo "Frontend health check failed"
+          exit 1
+      
+      - name: Health Check - Backend API
+        run: |
+          echo "Checking backend health at http://${{ steps.lb_ip.outputs.lb_ip }}/api/health"
+          for i in {1..10}; do
+            if curl -f -s http://${{ steps.lb_ip.outputs.lb_ip }}/api/health; then
+              echo "Backend API is healthy!"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 30 seconds..."
+            sleep 30
+          done
+          echo "Backend API health check failed"
+          exit 1
