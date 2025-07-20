@@ -55,7 +55,7 @@ jobs:
           TF_VAR_compartment_id: ${{ secrets.OCI_COMPARTMENT_ID }}
           TF_VAR_ocir_repository: ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}
           TF_VAR_image_tag: ${{ github.sha }}
-          TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
       
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
@@ -63,7 +63,7 @@ jobs:
           TF_VAR_compartment_id: ${{ secrets.OCI_COMPARTMENT_ID }}
           TF_VAR_ocir_repository: ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}
           TF_VAR_image_tag: ${{ github.sha }}
-          TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
       
       - name: Get Terraform Outputs
         id: terraform
@@ -138,7 +138,7 @@ jobs:
               --containers '[{
                 "displayName": "${{ matrix.service == 'frontend' && 'nextjs' || 'nestjs' }}",
                 "imageUrl": "${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:${{ github.sha }}",
-                "environmentVariables": ${{ matrix.service == 'frontend' && '{"NODE_ENV": "production", "PORT": "3000"}' || '{"NODE_ENV": "production", "PORT": "3001", "DATABASE_URL": "${{ secrets.DATABASE_URL }}"}' }}
+                "environmentVariables": ${{ matrix.service == 'frontend' && '{"NODE_ENV": "production", "PORT": "3000"}' || '{"NODE_ENV": "production", "PORT": "3001"}' }}
               }]' \
               --force
       
@@ -179,7 +179,7 @@ jobs:
           TF_VAR_compartment_id: ${{ secrets.OCI_COMPARTMENT_ID }}
           TF_VAR_ocir_repository: ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}
           TF_VAR_image_tag: ${{ github.sha }}
-          TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
       
       - name: Health Check - Frontend
         run: |

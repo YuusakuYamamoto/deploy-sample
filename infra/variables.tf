@@ -28,8 +28,20 @@ variable "image_tag" {
   default     = "latest"
 }
 
-variable "database_url" {
-  description = "Database connection URL for the backend"
+variable "database_name" {
+  description = "PostgreSQL database name"
+  type        = string
+  default     = "sdb_production"
+}
+
+variable "database_user" {
+  description = "PostgreSQL username"
+  type        = string
+  default     = "sdbuser"
+}
+
+variable "database_password" {
+  description = "PostgreSQL password"
   type        = string
   sensitive   = true
 }

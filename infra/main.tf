@@ -135,6 +135,48 @@ resource "oci_container_instances_container_instance" "frontend" {
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
 }
 
+# PostgreSQL Container Instance
+resource "oci_container_instances_container_instance" "postgresql" {
+  compartment_id = var.compartment_id
+  display_name   = "${var.project_name}-postgresql"
+  
+  shape = "CI.Standard.E4.Flex"
+  shape_config {
+    ocpus         = 1
+    memory_in_gbs = 4
+  }
+
+  containers {
+    display_name = "postgresql"
+    image_url    = "postgres:15"
+    
+    environment_variables = {
+      POSTGRES_DB       = var.database_name
+      POSTGRES_USER     = var.database_user
+      POSTGRES_PASSWORD = var.database_password
+    }
+
+    volume_mounts {
+      mount_path  = "/var/lib/postgresql/data"
+      volume_name = "postgres-data"
+    }
+  }
+
+  volumes {
+    name        = "postgres-data"
+    volume_type = "EMPTYDIR"
+  }
+
+  vnics {
+    subnet_id           = oci_core_subnet.public_subnet.id
+    assign_public_ip    = false
+    display_name        = "postgresql-vnic"
+    skip_source_dest_check = false
+  }
+
+  availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
+}
+
 # Backend Container Instance
 resource "oci_container_instances_container_instance" "backend" {
   compartment_id = var.compartment_id
@@ -153,7 +195,7 @@ resource "oci_container_instances_container_instance" "backend" {
     environment_variables = {
       NODE_ENV     = "production"
       PORT         = "3001"
-      DATABASE_URL = var.database_url
+      DATABASE_URL = "postgresql://${var.database_user}:${var.database_password}@${oci_container_instances_container_instance.postgresql.vnics[0].private_ip}:5432/${var.database_name}"
     }
   }
 
@@ -165,6 +207,8 @@ resource "oci_container_instances_container_instance" "backend" {
   }
 
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
+  
+  depends_on = [oci_container_instances_container_instance.postgresql]
 }
 
 # Load Balancer
