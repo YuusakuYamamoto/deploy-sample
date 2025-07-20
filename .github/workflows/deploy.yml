@@ -184,7 +184,28 @@ jobs:
           command: |
             echo "=== Getting Container Instance ID for ${{ matrix.service }} ==="
             
-            # コンテナインスタンス名でOCIDを検索
+            # Step 1: Test basic OCI CLI connectivity
+            echo "Testing OCI CLI basic functionality..."
+            oci --version || { echo "❌ OCI CLI not available"; exit 1; }
+            
+            # Step 2: Test compartment access
+            echo "Testing compartment access..."
+            oci iam compartment get --compartment-id ${{ secrets.OCI_COMPARTMENT_ID }} --query 'data.name' --raw-output || {
+              echo "❌ Cannot access compartment ${{ secrets.OCI_COMPARTMENT_ID }}"
+              exit 1
+            }
+            
+            # Step 3: List all container instances (debug)
+            echo "Listing all container instances in compartment..."
+            oci container-instances container-instance list \
+              --compartment-id ${{ secrets.OCI_COMPARTMENT_ID }} \
+              --query 'data[].{"Name":"display-name","ID":"id","State":"lifecycle-state"}' \
+              --output table || {
+                echo "❌ Failed to list container instances"
+                exit 1
+              }
+            
+            # Step 4: Search for specific instance
             INSTANCE_NAME="${{ env.PROJECT_NAME }}-${{ matrix.service }}"
             echo "Searching for instance: ${INSTANCE_NAME}"
             
@@ -192,15 +213,12 @@ jobs:
               --compartment-id ${{ secrets.OCI_COMPARTMENT_ID }} \
               --display-name "${INSTANCE_NAME}" \
               --query 'data[0].id' \
-              --raw-output 2>/dev/null || echo "")
+              --raw-output 2>&1 || echo "SEARCH_FAILED")
             
-            if [ -z "${CONTAINER_INSTANCE_ID}" ] || [ "${CONTAINER_INSTANCE_ID}" = "null" ]; then
+            echo "Search result: ${CONTAINER_INSTANCE_ID}"
+            
+            if [ "${CONTAINER_INSTANCE_ID}" = "SEARCH_FAILED" ] || [ -z "${CONTAINER_INSTANCE_ID}" ] || [ "${CONTAINER_INSTANCE_ID}" = "null" ]; then
               echo "❌ Failed to find container instance: ${INSTANCE_NAME}"
-              echo "Available instances:"
-              oci container-instances container-instance list \
-                --compartment-id ${{ secrets.OCI_COMPARTMENT_ID }} \
-                --query 'data[].{"Name":"display-name","ID":"id","State":"lifecycle-state"}' \
-                --output table
               exit 1
             fi
             
