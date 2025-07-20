@@ -173,15 +173,13 @@ jobs:
           echo "GITHUB_SHA: ${{ github.sha }}"
       
       - name: Get Container Instance ID for ${{ matrix.service }} by name
-        uses: oracle-actions/run-oci-cli-command@v1.3.2
         env:
           OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
           OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
           OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
           OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
           OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
-        with:
-          command: |
+        run: |
             echo "=== Getting Container Instance ID for ${{ matrix.service }} ==="
             
             # Step 1: Test basic OCI CLI connectivity
