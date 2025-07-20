@@ -54,6 +54,10 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -out=tfplan
         env:
+          TF_VAR_user_ocid: ${{ secrets.OCI_CLI_USER }}
+          TF_VAR_tenancy_ocid: ${{ secrets.OCI_CLI_TENANCY }}
+          TF_VAR_fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          TF_VAR_private_key: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
           TF_VAR_compartment_id: ${{ secrets.OCI_COMPARTMENT_ID }}
           TF_VAR_ocir_repository: ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}
           TF_VAR_image_tag: ${{ github.sha }}
@@ -62,6 +66,10 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
         env:
+          TF_VAR_user_ocid: ${{ secrets.OCI_CLI_USER }}
+          TF_VAR_tenancy_ocid: ${{ secrets.OCI_CLI_TENANCY }}
+          TF_VAR_fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          TF_VAR_private_key: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
           TF_VAR_compartment_id: ${{ secrets.OCI_COMPARTMENT_ID }}
           TF_VAR_ocir_repository: ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}
           TF_VAR_image_tag: ${{ github.sha }}
@@ -197,6 +205,10 @@ jobs:
           terraform init
           echo "lb_ip=$(terraform output -raw load_balancer_public_ip)" >> $GITHUB_OUTPUT
         env:
+          TF_VAR_user_ocid: ${{ secrets.OCI_CLI_USER }}
+          TF_VAR_tenancy_ocid: ${{ secrets.OCI_CLI_TENANCY }}
+          TF_VAR_fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          TF_VAR_private_key: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
           TF_VAR_compartment_id: ${{ secrets.OCI_COMPARTMENT_ID }}
           TF_VAR_ocir_repository: ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}
           TF_VAR_image_tag: ${{ github.sha }}

@@ -6,6 +6,30 @@ variable "region" {
   default     = "ap-tokyo-1"
 }
 
+variable "user_ocid" {
+  description = "OCI User OCID"
+  type        = string
+  sensitive   = true
+}
+
+variable "tenancy_ocid" {
+  description = "OCI Tenancy OCID"
+  type        = string
+  sensitive   = true
+}
+
+variable "fingerprint" {
+  description = "API Key Fingerprint"
+  type        = string
+  sensitive   = true
+}
+
+variable "private_key" {
+  description = "API Private Key Content"
+  type        = string
+  sensitive   = true
+}
+
 variable "compartment_id" {
   description = "OCID of the compartment where resources will be created"
   type        = string
