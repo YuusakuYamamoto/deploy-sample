@@ -24,6 +24,7 @@ jobs:
     outputs:
       frontend_ci_id: ${{ steps.terraform.outputs.frontend_ci_id }}
       backend_ci_id: ${{ steps.terraform.outputs.backend_ci_id }}
+      load_balancer_ip: ${{ steps.terraform.outputs.load_balancer_ip }}
     
     steps:
       - name: Checkout code
@@ -81,6 +82,7 @@ jobs:
         run: |
           echo "frontend_ci_id=$(terraform output -raw frontend_container_instance_id)" >> $GITHUB_OUTPUT
           echo "backend_ci_id=$(terraform output -raw backend_container_instance_id)" >> $GITHUB_OUTPUT
+          echo "load_balancer_ip=$(terraform output -raw load_balancer_public_ip)" >> $GITHUB_OUTPUT
 
   build-push:
     name: Build and Push Docker Images
@@ -410,38 +412,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.5.0
-          terraform_wrapper: false
-      
-      - name: Configure OCI CLI
-        uses: oracle-actions/run-oci-cli-command@v1.3.2
-        env:
-          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
-          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
-          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
-          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
-          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
-        with:
-          command: 'oci --version'
-      
-      - name: Get Load Balancer IP
+      - name: Get Load Balancer IP from IAC job
         id: lb_ip
-        working-directory: infra
         run: |
-          terraform init
-          echo "lb_ip=$(terraform output -raw load_balancer_public_ip)" >> $GITHUB_OUTPUT
-        env:
-          TF_VAR_user_ocid: ${{ secrets.OCI_CLI_USER }}
-          TF_VAR_tenancy_ocid: ${{ secrets.OCI_CLI_TENANCY }}
-          TF_VAR_fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
-          TF_VAR_private_key: ${{ secrets.OCI_CLI_PRIVATE_KEY }}
-          TF_VAR_compartment_id: ${{ secrets.OCI_COMPARTMENT_ID }}
-          TF_VAR_ocir_repository: ${{ env.OCIR_REGION }}.ocir.io/${{ env.OCIR_NAMESPACE }}/${{ env.PROJECT_NAME }}
-          TF_VAR_image_tag: ${{ github.sha }}
-          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          echo "lb_ip=${{ needs.iac.outputs.load_balancer_ip }}" >> $GITHUB_OUTPUT
+          echo "Load Balancer IP: ${{ needs.iac.outputs.load_balancer_ip }}"
       
       - name: Health Check - Frontend
         run: |
