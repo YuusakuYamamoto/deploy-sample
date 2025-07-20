@@ -168,9 +168,9 @@ resource "oci_container_instances_container_instance" "postgresql" {
   }
 
   vnics {
-    subnet_id           = oci_core_subnet.public_subnet.id
-    assign_public_ip    = false
-    display_name        = "postgresql-vnic"
+    subnet_id              = oci_core_subnet.public_subnet.id
+    assign_public_ip       = false
+    display_name           = "postgresql-vnic"
     skip_source_dest_check = false
   }
 
@@ -200,9 +200,9 @@ resource "oci_container_instances_container_instance" "backend" {
   }
 
   vnics {
-    subnet_id           = oci_core_subnet.public_subnet.id
-    assign_public_ip    = false
-    display_name        = "backend-vnic"
+    subnet_id              = oci_core_subnet.public_subnet.id
+    assign_public_ip       = false
+    display_name           = "backend-vnic"
     skip_source_dest_check = false
   }
 
@@ -310,7 +310,7 @@ resource "oci_load_balancer_path_route_set" "path_route_set" {
   name             = "api-path-routes"
 
   path_routes {
-    path                    = "/api*"
+    path = "/api*"
     path_match_type {
       match_type = "PREFIX_MATCH"
     }
@@ -327,7 +327,7 @@ resource "oci_load_balancer_listener" "https_listener_with_routing" {
   protocol                 = "HTTP"
   path_route_set_name      = oci_load_balancer_path_route_set.path_route_set.name
 
-  depends_on = [oci_load_balancer_listener.https_listener]
+  depends_on               = [oci_load_balancer_listener.https_listener]
 }
 
 # Outputs
