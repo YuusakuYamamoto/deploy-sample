@@ -22,7 +22,7 @@ export function UserList({ users, loading, onUserDeleted }: UserListProps) {
   const handleDelete = async (id: number) => {
     setDeletingId(id)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${id}`, {
+      const response = await fetch(`/api/users/${id}`, {
         method: 'DELETE',
       })
 

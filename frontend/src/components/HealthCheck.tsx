@@ -9,7 +9,7 @@ export function HealthCheck() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/health`)
+        const response = await fetch(`/api/health`)
         if (response.ok) {
           const data = await response.json()
           setStatus('healthy')
