@@ -8,7 +8,7 @@ async function bootstrap() {
 
   // CORS設定
   const corsOrigins = process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL || 'https://your-domain.com']
+    ? [process.env.FRONTEND_URL || `http://${process.env.LOAD_BALANCER_IP}`]
     : ["http://localhost:3000"];
   
   app.enableCors({

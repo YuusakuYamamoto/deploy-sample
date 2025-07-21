@@ -207,9 +207,10 @@ resource "oci_container_instances_container_instance" "backend" {
     image_url    = "${var.ocir_repository}:backend-${var.image_tag}"
 
     environment_variables = {
-      NODE_ENV     = "production"
-      PORT         = "3001"
-      DATABASE_URL = "postgresql://${var.database_user}:${var.database_password}@${oci_container_instances_container_instance.postgresql.vnics[0].private_ip}:5432/${var.database_name}"
+      NODE_ENV         = "production"
+      PORT             = "3001"
+      DATABASE_URL     = "postgresql://${var.database_user}:${var.database_password}@${oci_container_instances_container_instance.postgresql.vnics[0].private_ip}:5432/${var.database_name}"
+      LOAD_BALANCER_IP = oci_core_public_ip.load_balancer_ip.ip_address
     }
   }
 
@@ -225,6 +226,13 @@ resource "oci_container_instances_container_instance" "backend" {
   depends_on = [oci_container_instances_container_instance.postgresql]
 }
 
+# Reserved Public IP for Load Balancer
+resource "oci_core_public_ip" "load_balancer_ip" {
+  compartment_id = var.compartment_id
+  display_name   = "${var.project_name}-lb-ip"
+  lifetime       = "RESERVED"
+}
+
 # Load Balancer
 resource "oci_load_balancer_load_balancer" "load_balancer" {
   compartment_id = var.compartment_id
@@ -238,6 +246,9 @@ resource "oci_load_balancer_load_balancer" "load_balancer" {
 
   subnet_ids = [oci_core_subnet.public_subnet.id]
   is_private = false
+  reserved_ips {
+    id = oci_core_public_ip.load_balancer_ip.id
+  }
 }
 
 # Backend Set for Frontend
@@ -336,7 +347,7 @@ resource "oci_load_balancer_listener" "https_listener" {
 # Outputs
 output "load_balancer_public_ip" {
   description = "Public IP address of the Load Balancer"
-  value       = oci_load_balancer_load_balancer.load_balancer.ip_address_details[0].ip_address
+  value       = oci_core_public_ip.load_balancer_ip.ip_address
 }
 
 output "frontend_container_instance_id" {
