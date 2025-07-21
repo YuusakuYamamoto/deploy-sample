@@ -134,8 +134,9 @@ resource "oci_container_instances_container_instance" "frontend" {
     image_url    = "${var.ocir_repository}:frontend-${var.image_tag}"
 
     environment_variables = {
-      NODE_ENV = "production"
-      PORT     = "3000"
+      NODE_ENV            = "production"
+      PORT                = "3000"
+      NEXT_PUBLIC_API_URL = "http://${oci_core_public_ip.load_balancer_ip.ip_address}/api"
     }
   }
 
