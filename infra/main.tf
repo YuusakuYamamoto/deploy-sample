@@ -95,6 +95,16 @@ resource "oci_core_security_list" "security_list" {
       max = 3001
     }
   }
+
+  # Allow inbound for PostgreSQL
+  ingress_security_rules {
+    source   = "10.0.0.0/16"
+    protocol = "6" # TCP
+    tcp_options {
+      min = 5432
+      max = 5432
+    }
+  }
 }
 
 # Create Public Subnet
