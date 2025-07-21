@@ -2,12 +2,14 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "ESNext",
-    "moduleResolution": "node",
-    "target": "ES2020",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
     "outDir": "./dist",
     "removeComments": true,
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true
   },
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
 }
