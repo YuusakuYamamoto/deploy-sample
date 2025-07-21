@@ -46,4 +46,5 @@ USER nestjs
 
 EXPOSE 3001
 
-CMD ["node", "dist/main.js"]
+# Push database schema and start the application
+CMD ["sh", "-c", "npx prisma db push && node dist/main.js"]
