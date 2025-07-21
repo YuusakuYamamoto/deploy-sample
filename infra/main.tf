@@ -266,7 +266,7 @@ resource "oci_load_balancer_backend_set" "backend_backend_set" {
   health_checker {
     protocol          = "HTTP"
     port              = 3001
-    url_path          = "/health"
+    url_path          = "/api/health"
     return_code       = 200
     interval_ms       = 10000
     timeout_in_millis = 3000
